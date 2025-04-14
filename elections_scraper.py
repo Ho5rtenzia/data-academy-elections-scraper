@@ -9,10 +9,16 @@ import sys
 import requests
 from bs4 import BeautifulSoup
 import csv
-from typing import List, Tuple, Dict
+from typing import List, Dict
+from dataclasses import dataclass
 
 base_url = "https://www.volby.cz/pls/ps2017nss/"
 
+@dataclass
+class Municipality:
+    code: str
+    name: str
+    url: str
 
 def is_valid_url(url: str) -> bool:
     """
@@ -43,9 +49,9 @@ def clean_number(value: str) -> str:
     return value.replace("\xa0", "").replace(" ", "")
 
 
-def get_municipality_links_and_info(soup: BeautifulSoup) -> List[Tuple[str, str, str]]:
+def get_municipality_links_and_info(soup: BeautifulSoup) -> List[Municipality]:
     """
-    Returns a list of municipalities in [(code, name, detail URL)] format 
+    Returns a list of municipalities in [(code, name, detail URL)] format
     from the landing page.
     """
     data = []
@@ -54,14 +60,14 @@ def get_municipality_links_and_info(soup: BeautifulSoup) -> List[Tuple[str, str,
         if len(tds) >= 2:
             a_tag = tds[0].find("a")
             if a_tag and "href" in a_tag.attrs:
-                kod_obce = a_tag.text.strip()
-                nazev_obce = tds[1].text.strip()
+                code_municipality = a_tag.text.strip()
+                name_municipality = tds[1].text.strip()
                 link = base_url + a_tag["href"]
-                data.append((kod_obce, nazev_obce, link))
+                data.append(Municipality(code_municipality, name_municipality, link))
     return data
 
 
-def extract_main_numbers(soup: BeautifulSoup) -> Tuple[str, str, str]:
+def extract_main_numbers(soup: BeautifulSoup) -> tuple[str, str, str]:
     """
     Returns 3 main numbers from the table: (voters on the list, 
     envelopes issued, valid votes)
@@ -105,29 +111,46 @@ def extract_party_names(soup: BeautifulSoup) -> List[str]:
 
 
 def scrape_municipality_data(
-    code: str, name_municipality: str, detail_url: str, party_names: List[str]
+    municipality: Municipality,
+    party_names: List[str]
 ) -> List:
     """
     Returns a list of data for one municipality: 
     [code, name, voters, envelopes, valid votes, ...votes for each party]
     Converts vote numbers to integers.
     """
-    soup = get_soup(detail_url)
+    soup = get_soup(municipality.url)
     voters, envelopes, valid_votes = extract_main_numbers(soup)
     party_votes = extract_party_votes_dict(soup)
     votes = [int(party_votes.get(name, 0)) for name in party_names]
     return [
-        code,
-        name_municipality,
+        municipality.code,
+        municipality.name,
         int(voters),
         int(envelopes),
         int(valid_votes),
     ] + votes
 
+def save_results_to_csv(
+    output_file: str,
+    header: List[str],
+    municipality_data: List[Municipality],
+    party_names: List[str]
+) -> None:
+    """
+    Saves the election results to a CSV file.
+    """
+    with open(output_file, mode="w", newline="", encoding="utf-8-sig") as file:
+        writer = csv.writer(file)
+        writer.writerow(header)
+
+        for municipality in municipality_data:
+            row = scrape_municipality_data(municipality, party_names)
+            writer.writerow(row)
 
 def main():
     if len(sys.argv) != 3:
-        print("Error: Specify exactly 2 arguments: [URL] [filename.csv]")
+        print("Error: Specify exactly 2 arguments: [URL] [output_file.csv]")
         return
 
     url, output_file = sys.argv[1], sys.argv[2]
@@ -149,17 +172,12 @@ def main():
     print(
         f"Found {len(municipality_data)} municipalities. I'm checking candidate parties..."
     )
-    party_names = extract_party_names(get_soup(municipality_data[0][2]))
+    party_names = extract_party_names(get_soup(municipality_data[0].url))
     header = ["code", "location", "registered", "envelopes", "valid"] + party_names
 
     print("I'm processing the results...")
-    with open(output_file, mode="w", newline="", encoding="utf-8-sig") as file:
-        writer = csv.writer(file)
-        writer.writerow(header)
 
-        for code, name, link in municipality_data:
-            row = scrape_municipality_data(code, name, link, party_names)
-            writer.writerow(row)
+    save_results_to_csv(output_file, header, municipality_data, party_names)
 
     print(f"Done! The results have been saved to a file: {output_file}")
 

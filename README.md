@@ -1,6 +1,6 @@
 # Elections Scraper – Stažení volebních výsledků z roku 2017
 
-TTento projekt je vypracováním úkolu pro Engeto Academy, kde vytvářím scraper, který automatizovaně stahuje a ukládá výsledky voleb do Poslanecké sněmovny ČR z roku 2017 přímo z oficiálního webu [volby.cz](https://www.volby.cz).
+Tento projekt je vypracováním úkolu pro Engeto Academy, kde vytvářím scraper, který automatizovaně stahuje a ukládá výsledky voleb do Poslanecké sněmovny ČR z roku 2017 přímo z oficiálního webu [volby.cz](https://www.volby.cz).
 
 ## Popis programu
 
@@ -73,7 +73,7 @@ data-academy-elections-scraper/
 ├── elections_scraper.py              # Hlavní skript programu
 ├── requirements.txt                  # Přehled knihoven
 ├── vysledky_benesov.csv              # Ukázka výstupního soubor
-
+```
 
 ## Autor
 
