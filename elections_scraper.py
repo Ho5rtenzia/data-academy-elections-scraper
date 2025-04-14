@@ -13,11 +13,13 @@ from typing import List, Tuple, Dict
 
 base_url = "https://www.volby.cz/pls/ps2017nss/"
 
+
 def is_valid_url(url: str) -> bool:
     """
     Verifies that the specified URL is from the volby.cz domain and contains xjazyk=CZ.
     """
     return url.startswith(base_url) and "xjazyk=CZ" in url
+
 
 def get_soup(url: str) -> BeautifulSoup:
     """
@@ -27,20 +29,25 @@ def get_soup(url: str) -> BeautifulSoup:
     try:
         response = requests.get(url)
         response.raise_for_status()
-        response.encoding = 'utf-8'
-        return BeautifulSoup(response.text, 'html.parser')
+        response.encoding = "utf-8"
+        return BeautifulSoup(response.text, "html.parser")
     except requests.RequestException as e:
         print(f"Error: Failed to load URL {url} – {e}")
         sys.exit(1)
+
 
 def clean_number(value: str) -> str:
     """
     Removes non-breaking and normal spaces from number strings.
     """
-    return value.replace('\xa0', '').replace(' ', '')
+    return value.replace("\xa0", "").replace(" ", "")
+
 
 def get_municipality_links_and_info(soup: BeautifulSoup) -> List[Tuple[str, str, str]]:
-    """Returns a list of municipalities in [(code, name, detail URL)] format from the landing page."""
+    """
+    Returns a list of municipalities in [(code, name, detail URL)] format 
+    from the landing page.
+    """
     data = []
     for tr in soup.find_all("tr")[2:]:
         tds = tr.find_all("td")
@@ -53,9 +60,11 @@ def get_municipality_links_and_info(soup: BeautifulSoup) -> List[Tuple[str, str,
                 data.append((kod_obce, nazev_obce, link))
     return data
 
+
 def extract_main_numbers(soup: BeautifulSoup) -> Tuple[str, str, str]:
     """
-    Returns 3 main numbers from the table: (voters on the list, envelopes issued, valid votes)
+    Returns 3 main numbers from the table: (voters on the list, 
+    envelopes issued, valid votes)
     """
     try:
         table = soup.find("table", {"id": "ps311_t1"})
@@ -68,9 +77,11 @@ def extract_main_numbers(soup: BeautifulSoup) -> Tuple[str, str, str]:
     except Exception:
         return "", "", ""
 
+
 def extract_party_votes_dict(soup: BeautifulSoup) -> Dict[str, str]:
     """
-    Returns the dictionary {party name: number of votes} from the tables on the page.
+    Returns the dictionary {party name: number of votes} 
+    from the tables on the page.
     """
     votes = {}
     for table in soup.find_all("table"):
@@ -85,22 +96,34 @@ def extract_party_votes_dict(soup: BeautifulSoup) -> Dict[str, str]:
                         votes[name] = vote_td
     return votes
 
+
 def extract_party_names(soup: BeautifulSoup) -> List[str]:
     """
     Returns a list of page names in the correct order for the CSV header.
     """
     return list(extract_party_votes_dict(soup).keys())
 
-def scrape_municipality_data(code: str, name_municipality: str, detail_url: str, party_names: List[str]) -> List:
+
+def scrape_municipality_data(
+    code: str, name_municipality: str, detail_url: str, party_names: List[str]
+) -> List:
     """
-    Returns a list of data for one municipality: [code, name, voters, envelopes, valid votes, ...votes for each party]
+    Returns a list of data for one municipality: 
+    [code, name, voters, envelopes, valid votes, ...votes for each party]
     Converts vote numbers to integers.
     """
     soup = get_soup(detail_url)
     voters, envelopes, valid_votes = extract_main_numbers(soup)
     party_votes = extract_party_votes_dict(soup)
     votes = [int(party_votes.get(name, 0)) for name in party_names]
-    return [code, name_municipality, int(voters), int(envelopes), int(valid_votes)] + votes
+    return [
+        code,
+        name_municipality,
+        int(voters),
+        int(envelopes),
+        int(valid_votes),
+    ] + votes
+
 
 def main():
     if len(sys.argv) != 3:
@@ -110,7 +133,9 @@ def main():
     url, output_file = sys.argv[1], sys.argv[2]
 
     if not is_valid_url(url):
-        print("Error: Invalid link. Must be from the domain volby.cz and contain the parameter xjazyk=CZ")
+        print(
+            "Error: Invalid link. Must be from the domain volby.cz and contain the parameter xjazyk=CZ"
+        )
         return
 
     print("Loading the main page...")
@@ -121,7 +146,9 @@ def main():
         print("Error: No references to municipalities found.")
         return
 
-    print(f"Found {len(municipality_data)} municipalities. I'm checking candidate parties...")
+    print(
+        f"Found {len(municipality_data)} municipalities. I'm checking candidate parties..."
+    )
     party_names = extract_party_names(get_soup(municipality_data[0][2]))
     header = ["code", "location", "registered", "envelopes", "valid"] + party_names
 
@@ -135,6 +162,7 @@ def main():
             writer.writerow(row)
 
     print(f"Done! The results have been saved to a file: {output_file}")
+
 
 if __name__ == "__main__":
     main()
